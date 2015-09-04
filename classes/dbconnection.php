@@ -93,14 +93,4 @@ class DBConnection {
                 ->limit($limit);
         return $result;
     }
-    /**
-     * 
-     * @return type
-     */
-    public function getCategories(){
-//        $db = $this->databse;
-//        $result = $db->command(array('distinct' => 'mongo_blog.sample_articles', 
-//                    'key' => 'category'));
-//        return $result;
-    }
 }

@@ -20,7 +20,32 @@
     
     // get the list of categories
     $db = $mongo->database;
-    $categories = $db->command(array('distinct' => 'mongo_blog.sample_articles', 'key' => 'category'));
+    
+    // Find the number of articles per category
+    // define the map function
+    $map = new MongoCode("function(){ emit(this.category, 1); }");
+    
+    // define the reduce function
+    $reduce = new MongoCode("function(key, values){"
+                . "count = 0; "
+                . "for (var i = 0; i < values.length; i++){"
+                    . "count += values[i];"
+                . "}"
+                . "return count;"
+            . "}");
+    $command = array(
+        'mapreduce'     => 'mongo_blog.sample_articles',
+        'map'           => $map,
+        'reduce'        => $reduce,
+        'out'           => 'articles_per_category'
+    );
+    
+    $db->command($command);
+    
+    // load all the categories in an array
+    $crsr = $db->selectCollection('articles_per_category')
+                                       ->find();
+    $categories = iterator_to_array($crsr);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -67,9 +92,9 @@
                                 <li class="dropdown ">
                                     <a href="#" class="dropdown-toggle " data-toggle="dropdown" data-hover="dropdown" data-delay="0" data-close-others="false">Categories <b class=" icon-angle-down"></b></a>
                                     <ul class="dropdown-menu">
-                                        <?php foreach($categories['values'] as $category):?>
-                                        <li><a href=""><?php echo $category; ?></a></li>
-                                        <?php endforeach;?>
+                                        <?php foreach($categories as $category): ?>
+                                        <li><a href=""><?php echo $category['_id']; ?></a></li>
+                                        <?php endforeach;; ?>
                                     </ul>
                                 </li>
                                 <li><a href="">Contact</a></li>
@@ -141,9 +166,9 @@
                                 <div class="widget">
                                     <h5 class="widgetheading">Categories</h5>
                                     <ul class="cat">
-                                        <?php foreach ($categories['values'] as $category){?>
-                                            <li><i class="icon-angle-right"></i><a href="#"><?php echo $category; ?></a><span> (20)</span></li>                                        
-                                        <?php } ?>
+                                        <?php foreach($categories as $category): ?>
+                                            <li><i class="icon-angle-right"></i><a href="#"><?php echo $category['_id']; ?></a><span> <?php echo $category['value']; ?></span></li>                                        
+                                        <?php endforeach; ?>
                                     </ul>
                                 </div>
                                 <div class="widget">
