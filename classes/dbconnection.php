@@ -79,4 +79,28 @@ class DBConnection {
         }
         return $result;
     }
+    
+    /**
+     * 
+     * @param type $collection
+     * @param type $limit
+     * @return type $array
+     */
+    public function getLatestArticles($collection, $limit){
+        $table = $this->getCollection($collection);
+        $result = $table->find(array(), array('_id', 'title', 'published_at', 'description'))
+                ->sort(array('published_at', -1))
+                ->limit($limit);
+        return $result;
+    }
+    /**
+     * 
+     * @return type
+     */
+    public function getCategories(){
+//        $db = $this->databse;
+//        $result = $db->command(array('distinct' => 'mongo_blog.sample_articles', 
+//                    'key' => 'category'));
+//        return $result;
+    }
 }
