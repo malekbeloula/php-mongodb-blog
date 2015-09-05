@@ -93,7 +93,7 @@
                                     <a href="#" class="dropdown-toggle " data-toggle="dropdown" data-hover="dropdown" data-delay="0" data-close-others="false">Categories <b class=" icon-angle-down"></b></a>
                                     <ul class="dropdown-menu">
                                         <?php foreach($categories as $category): ?>
-                                        <li><a href=""><?php echo $category['_id']; ?></a></li>
+                                        <li><a href="category.php?category=<?php echo $category['_id']; ?>"><?php echo $category['_id']; ?></a></li>
                                         <?php endforeach;; ?>
                                     </ul>
                                 </li>
@@ -167,7 +167,7 @@
                                     <h5 class="widgetheading">Categories</h5>
                                     <ul class="cat">
                                         <?php foreach($categories as $category): ?>
-                                            <li><i class="icon-angle-right"></i><a href="#"><?php echo $category['_id']; ?></a><span> <?php echo $category['value']; ?></span></li>                                        
+                                            <li><i class="icon-angle-right"></i><a href="category.php?category=<?php echo $category['_id']; ?>"><?php echo $category['_id']; ?></a><span> <?php echo $category['value']; ?></span></li>                                        
                                         <?php endforeach; ?>
                                     </ul>
                                 </div>

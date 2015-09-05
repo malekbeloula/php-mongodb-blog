@@ -1,19 +1,49 @@
 <?php
-    require_once('./classes/dbconnection.php');
-    $id = $_GET['id'];
+    require_once('classes/dbconnection.php');
+    // Get the values of category
+    $category = $_GET['category'];
     $mongo = DBConnection::singleton();
-    $articleCollection = $mongo->getCollection("mongo_blog.sample_articles");
-    $article = $articleCollection->findOne(array('_id' => new MongoId($id)));
-
-// get the list of categories
+    $articleCollection = $mongo->getCollection('mongo_blog.sample_articles');
+    $currentPage = (isset($_GET['page'])) ? (int) $_GET['page'] : 1;
+    $articlesPerPage = 4;
+    $skip = ($currentPage - 1) * $articlesPerPage;
+    $cursor = $articleCollection->find(array("category" => $category));
+    $totalArticles = $cursor->count();
+    $totalPages = (int) ceil($totalArticles / $articlesPerPage);
+    $cursor->sort(array('published_at' => -1))->skip($skip)->limit($articlesPerPage);
+    $latestArticle = $mongo->getLatestArticles('mongo_blog.sample_articles', 3);
+    // get the list of categories
     $db = $mongo->database;
-    $categories = $db->command(array('distinct' => 'mongo_blog.sample_articles', 'key' => 'category'));
+    // Find the number of articles per category
+    // define the map function
+    $map = new MongoCode("function(){ emit(this.category, 1); }");
+    // define the reduce function
+    $reduce = new MongoCode("function(key, values){"
+                . "count = 0; "
+                . "for (var i = 0; i < values.length; i++){"
+                    . "count += values[i];"
+                . "}"
+                . "return count;"
+            . "}");
+    $command = array(
+        'mapreduce'     => 'mongo_blog.sample_articles',
+        'map'           => $map,
+        'reduce'        => $reduce,
+        'out'           => 'articles_per_category'
+    );
+    
+    $db->command($command);
+    
+    // load all the categories in an array
+    $crsr = $db->selectCollection('articles_per_category')
+                                       ->find();
+    $categories = iterator_to_array($crsr);
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>All the articles</title>
+        <title>Category - <?php echo $_GET['category']; ?></title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="description" content="" />
         <meta name="author" content="Malek Beloula" />
@@ -54,9 +84,9 @@
                                 <li class="dropdown ">
                                     <a href="#" class="dropdown-toggle " data-toggle="dropdown" data-hover="dropdown" data-delay="0" data-close-others="false">Categories <b class=" icon-angle-down"></b></a>
                                     <ul class="dropdown-menu">
-                                        <?php foreach($categories['values'] as $category):?>
-                                        <li><a href="category.php?category=<?php echo $category; ?>"><?php echo $category; ?></a></li>
-                                        <?php endforeach;?>
+                                        <?php foreach($categories as $category): ?>
+                                        <li><a href="category.php?category=<?php echo $category['_id'];?>"><?php echo $category['_id']; ?></a></li>
+                                        <?php endforeach;; ?>
                                     </ul>
                                 </li>
                                 <li><a href="">Contact</a></li>
@@ -82,25 +112,86 @@
                 <div class="container">
                     <div class="row">
                         <div class="col-lg-8">
-                            <article>
-                                <div class="post-image">
-                                    <div class="post-heading">
-                                        <h3><?php echo $article['title']; ?></h3>
+                            <?php
+                            while ($cursor->hasNext()):
+                                $article = $cursor->getNext();
+                                ?>
+                                <article>
+                                    <div class="post-image">
+                                        <div class="post-heading">
+                                            <h3><a href="blogpost.php?id=<?php echo $article['_id'];?>"><?php echo $article['title']; ?></a></h3>
+                                        </div>
+                                        <img src="static/img/img1.jpg" alt="" />
                                     </div>
-                                    <img src="static/img/img1.jpg" alt="" />
+                                    <p>
+                                        <?php echo substr($article['description'], 0, 200); ?> 
+                                    </p>
+                                    <div class="bottom-article">
+                                        <ul class="meta-post">
+                                            <li><i class="icon-calendar"></i><a href="#"> <?php echo date('M d, Y', $article['published_at']->sec); ?></a></li>
+                                            <li><i class="icon-user"></i><a href="#"> Admin</a></li>
+                                            <li><i class="icon-folder-open"></i><a href="#"> Blog</a></li>
+                                            <li><i class="icon-comments"></i><a href="#">4 Comments</a></li>
+                                        </ul>
+                                        <a href="blogpost.php?id=<?php echo $article['_id'];?>" class="pull-right">Continue reading <i class="icon-angle-right"></i></a>
+                                    </div>
+                                </article>
+                            <?php endwhile; ?>
+                            <div id="pagination">
+                                <span class="all"><?php echo "Page $currentPage of $totalPages"?></span>
+                                <?php for ($i = 1; $i <= $totalPages; $i++){ 
+                                    if($i === $currentPage){?>                                        
+                                        <span class="current"><?php echo $currentPage; ?></span>
+                                    <?php } else { ?>
+                                        <a href="category.php?category=<?php echo $_GET['category'];?>&page=<?php echo $i; ?>" class="inactive"><?php echo $i; ?></a>                                        
+                                   <?php }
+                                   } ?>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <aside class="right-sidebar">
+                                <div class="widget">
+                                    <form class="form-search">
+                                        <input class="form-control" type="text" placeholder="Search..">
+                                    </form>
                                 </div>
-                                <p>
-                                    <?php echo $article['description']; ?>
-                                </p>
-                                <div class="bottom-article">
-                                    <ul class="meta-post">
-                                        <li><i class="icon-calendar"></i><a href="#"> <?php echo date('M d, Y', $article['published_at']->sec); ?></a></li>
-                                        <li><i class="icon-user"></i><a href="#"> <?php echo $article['author']; ?></a></li>
-                                        <li><i class="icon-folder-open"></i><a href="#"> Blog</a></li>
-                                        <li><i class="icon-comments"></i><a href="#">4 Comments</a></li>
-                                    </ul>                                    
+                                <div class="widget">
+                                    <h5 class="widgetheading">Categories</h5>
+                                    <ul class="cat">
+                                        <?php foreach($categories as $category): ?>
+                                        <li><i class="icon-angle-right"></i><a href="category.php?category=<?php echo $category['_id']; ?>"><?php echo $category['_id']; ?></a><span> <?php echo $category['value']; ?></span></li>                                        
+                                        <?php endforeach; ?>
+                                    </ul>
                                 </div>
-                            </article>
+                                <div class="widget">
+                                    <h5 class="widgetheading">Latest posts</h5>
+                                    <ul class="recent">
+                                        <?php
+                                        while ($latestArticle->hasNext()):
+                                            $article = $latestArticle->getNext();
+                                            ?>
+                                            <li>
+                                                <img src="static/img/thumb1.jpg" class="pull-left" alt="" />
+                                                <h6><a href="blogpost.php?id=<?php echo $article['_id'];?>"><?php echo substr($article['title'], 0, 20); ?></a></h6>
+                                                <p>
+                                                    <?php echo substr($article['description'], 0, 60) ?>
+                                                </p>
+                                            </li>
+                                        <?php endwhile; ?>
+                                    </ul>
+                                </div>
+                                <div class="widget">
+                                    <h5 class="widgetheading">Popular tags</h5>
+                                    <ul class="tags">
+                                        <li><a href="#">Web design</a></li>
+                                        <li><a href="#">Trends</a></li>
+                                        <li><a href="#">Technology</a></li>
+                                        <li><a href="#">Internet</a></li>
+                                        <li><a href="#">Tutorial</a></li>
+                                        <li><a href="#">Development</a></li>
+                                    </ul>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>
